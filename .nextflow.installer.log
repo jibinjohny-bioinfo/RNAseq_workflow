@@ -1,0 +1,50 @@
+Usage: nextflow [options] COMMAND [arg...]
+
+Options:
+  -C
+     Use the specified configuration file(s) overriding any defaults
+  -D
+     Set JVM properties
+  -bg
+     Execute nextflow in background
+  -c, -config
+     Add the specified file to configuration set
+  -config-ignore-includes
+     Disable the parsing of config includes
+  -h
+     Print this help
+  -log
+     Set nextflow log file path
+  -q, -quiet
+     Do not print information messages
+  -remote-debug
+     Enable JVM interactive remote debugging (experimental)
+  -syslog
+     Send logs to syslog server (eg. localhost:514)
+  -trace
+     Enable trace level logging for the specified package name - multiple packages can be provided separating them with a comma e.g. '-trace nextflow,io.seqera'
+  -v, -version
+     Print the program version
+
+Commands:
+  clean         Clean up project cache and work directories
+  clone         Clone a project into a folder
+  config        Print a project configuration
+  console       Launch Nextflow interactive console
+  drop          Delete the local copy of a project
+  fs            Perform filesystem operations
+  help          Print the usage help for a command
+  info          Print project and system runtime information
+  inspect       Inspect process settings in a pipeline project
+  kuberun       Execute a workflow in a Kubernetes cluster (experimental)
+  lineage       Explore workflows lineage metadata
+  lint          Lint Nextflow scripts and config files
+  list          List all downloaded projects
+  log           Print executions log and runtime info
+  plugin        Execute plugin-specific commands
+  pull          Download or update a project
+  run           Execute a pipeline project
+  secrets       Manage pipeline secrets
+  self-update   Update nextflow runtime to the latest available version
+  view          View project script file(s)
+
