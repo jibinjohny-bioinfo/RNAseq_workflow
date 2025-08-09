@@ -93,6 +93,3 @@ nextflow run main.nf -profile standard,conda \
 - BUSCO may download lineage data on first run; set `--busco_db` to a local path to avoid downloads.
 - featureCounts requires a valid annotation (GTF/GFF). Counting against a FASTA is not supported.
 
-## Software provisioning tips
-- Prefer Mamba for faster solves; set `NXF_CONDA_CACHEDIR` to reuse environments.
-- For containers, use `-profile docker` and set `process.container` per process or globally if compatible.
