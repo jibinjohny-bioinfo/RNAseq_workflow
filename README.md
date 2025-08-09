@@ -1,6 +1,6 @@
 # RNA-seq Genome-Guided Assembly Pipeline (Nextflow)
 
-This Nextflow DSL2 pipeline performs RNA-seq quality control, genome alignment, genome-guided de novo transcriptome assembly with Trinity, coding sequence prediction with TransDecoder, completeness assessment with BUSCO, protein similarity search with BLASTx, and optional read counting with featureCounts.
+This Nextflow DSL2 pipeline performs RNA-seq quality control, genome alignment, genome-guided de novo transcriptome assembly with Trinity, coding sequence prediction with TransDecoder, completeness assessment with BUSCO, protein similarity search with BLASTx, sample-level quantification with Salmon, and differential expression with DESeq2 (via tximport). Optional featureCounts is provided if a gene annotation is available.
 
 ## Features
 - FastQC per-sample QC and MultiQC aggregation
@@ -9,55 +9,55 @@ This Nextflow DSL2 pipeline performs RNA-seq quality control, genome alignment, 
 - TransDecoder ORF prediction
 - BUSCO transcriptome completeness
 - BLASTx annotation against a reference protein FASTA
+- Salmon quantification against assembled transcripts
+- DESeq2 differential expression using tximport
 - Optional featureCounts quantification (requires GTF/GFF)
 
 ## Requirements
 - Nextflow 22.10+ (`nextflow -version`)
-- Either Conda/Mamba (recommended) or Docker/Singularity for software provisioning
+- Either Conda/Mamba (recommended) or Docker/Singularity
 
 ## Input samplesheet
-A CSV file with a header and three columns: `sample,fq1,fq2`.
+CSV with header and four columns: `sample,condition,fq1,fq2`.
 - **sample**: short sample identifier (no spaces)
+- **condition**: group label (e.g., `M` for male, `F` for female)
 - **fq1**: path to read 1 FASTQ (gzip accepted)
 - **fq2**: path to read 2 FASTQ (gzip accepted)
 
 Example:
 ```csv
-sample,fq1,fq2
-F1,data/IT_F1_1.fq.gz,data/IT_F1_2.fq.gz
-F2,data/IT_F2_1.fq.gz,data/IT_F2_2.fq.gz
-F3,data/IT_F3_1.fq.gz,data/IT_F3_2.fq.gz
+sample,condition,fq1,fq2
+F1,F,data/IT_F1_1.fq.gz,data/IT_F1_2.fq.gz
+F2,F,data/IT_F2_1.fq.gz,data/IT_F2_2.fq.gz
+F3,F,data/IT_F3_1.fq.gz,data/IT_F3_2.fq.gz
+M1,M,data/IT_M1_1.fq.gz,data/IT_M1_2.fq.gz
+M2,M,data/IT_M2_1.fq.gz,data/IT_M2_2.fq.gz
+M3,M,data/IT_M3_1.fq.gz,data/IT_M3_2.fq.gz
 ```
 
 ## Quick start
-1. Prepare input files under `data/`:
-   - Genome FASTA: `data/genome.fasta`
-   - Reference proteins FASTA (for BLASTx DB): `data/ref_proteins.fasta`
-   - Samplesheet CSV: `data/samplesheet.csv`
+Run with Conda:
+```bash
+nextflow run main.nf -profile standard,conda \
+  --genome data/genome.fasta \
+  --samplesheet data/samplesheet.csv \
+  --ref_proteins data/ref_proteins.fasta \
+  --busco_db insecta_odb10 \
+  --outdir results \
+  --trinity_prefix gg_trinity \
+  --max_intron 10000 \
+  --de_case_label M --de_control_label F
+```
 
-2. Run with Conda (creates per-process environments):
-
-   ```bash
-   nextflow run main.nf -profile standard,conda \
-     --genome data/genome.fasta \
-     --samplesheet data/samplesheet.csv \
-     --ref_proteins data/ref_proteins.fasta \
-     --busco_db insecta_odb10 \
-     --outdir results \
-     --trinity_prefix gg_trinity \
-     --max_intron 10000
-   ```
-
-3. Optional: provide a gene annotation for featureCounts
-
-   ```bash
-   nextflow run main.nf -profile standard,conda \
-     --genome data/genome.fasta \
-     --samplesheet data/samplesheet.csv \
-     --ref_proteins data/ref_proteins.fasta \
-     --busco_db insecta_odb10 \
-     --featurecounts_gtf data/annotation.gtf
-   ```
+Optional: featureCounts if you have a gene annotation:
+```bash
+nextflow run main.nf -profile standard,conda \
+  --genome data/genome.fasta \
+  --samplesheet data/samplesheet.csv \
+  --ref_proteins data/ref_proteins.fasta \
+  --busco_db insecta_odb10 \
+  --featurecounts_gtf data/annotation.gtf
+```
 
 ## Outputs
 - `results/qc/fastqc/` — FastQC reports per sample
@@ -69,28 +69,30 @@ F3,data/IT_F3_1.fq.gz,data/IT_F3_2.fq.gz
 - `results/busco/` — BUSCO results (`busco_out/`)
 - `results/blastdb/` — BLAST protein database
 - `results/blastx.outfmt6` — BLASTx tabular hits (outfmt 6)
+- `results/salmon_index/` — Salmon index of assembled transcripts
+- `results/salmon_quant/` — Per-sample `quant.sf`
+- `results/de/` — Differential expression: `deseq2_results.tsv`, `normalized_counts.tsv`, `plots/`
 - `results/counts.txt` — featureCounts matrix (if `--featurecounts_gtf` is provided)
 
 ## Parameters (selected)
 - `--genome` (string): Path to genome FASTA
-- `--samplesheet` (string): CSV with `sample,fq1,fq2`
+- `--samplesheet` (string): CSV with `sample,condition,fq1,fq2`
 - `--ref_proteins` (string): Path to protein FASTA for BLASTx DB
-- `--busco_db` (string): BUSCO lineage name (e.g. `insecta_odb10`) or a local lineage path
+- `--busco_db` (string): BUSCO lineage name (e.g. `insecta_odb10`) or local lineage path
 - `--outdir` (string): Output directory (default: `results`)
 - `--trinity_prefix` (string): Prefix for assembly output directory name
 - `--max_intron` (int): Trinity `--genome_guided_max_intron` (default: 10000)
-- `--featurecounts_gtf` (string|null): GTF/GFF path for featureCounts; if not set, counting is skipped
+- `--de_case_label` (string): Case condition label (default: `M`)
+- `--de_control_label` (string): Control condition label (default: `F`)
+- `--featurecounts_gtf` (string|null): GTF/GFF path for featureCounts
 - `--max_cpus` (int): Max CPUs per process (default: 16)
 - `--max_memory` (string): Max memory per process (default: `100.GB`)
 
 ## Notes
+- DE is performed at transcript-level using Salmon + tximport + DESeq2; adjust `--de_case_label` and `--de_control_label` to match your groups.
 - BUSCO may download lineage data on first run; set `--busco_db` to a local path to avoid downloads.
 - featureCounts requires a valid annotation (GTF/GFF). Counting against a FASTA is not supported.
-- For large datasets, use a batch system or cloud executor via Nextflow profiles.
 
 ## Software provisioning tips
-- Prefer Mamba for faster solves: run with `-with-mpi -with-conda` and have `mamba` on PATH. With Nextflow 24.04+, set `NXF_CONDA_CHANNELS` to `conda-forge,bioconda,defaults` for robust environment resolution.
-- To use containers instead of Conda, append `-profile docker` and set images per process with `process.container`. You can also define a global image if suitable.
-
-## Reproducibility
-All software is provisioned per process using Conda when run with `-profile conda`. To use containers instead, supply `-profile docker` and set appropriate `process.container` images per process.
+- Prefer Mamba for faster solves; set `NXF_CONDA_CACHEDIR` to reuse environments.
+- For containers, use `-profile docker` and set `process.container` per process or globally if compatible.
